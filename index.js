@@ -1,9 +1,11 @@
 const http = require('http')
 const express = require('express')
 const cors = require('cors')
-
 const app = express()
 
+/*To make express show static content, the page index.html and the JavaScript, etc., 
+it fetches, we need a built-in middleware from Express called static.)*/
+app.use(express.static('dist'))
 //midleware cors
 app.use(cors())
 
@@ -26,6 +28,8 @@ that are stored in the request object, parses it into a JavaScript object and
 assigns it to the request object as a new property body.*/ 
 app.use(express.json())
 app.use(requestLogger)
+
+
 
 
 let notes = [  
@@ -54,7 +58,8 @@ let notes = [
         //middleware
         response.json(note)  
       } else {    
-        response.status(404).end()  }
+        response.status(404).end()  
+      }
 
       
     })
@@ -68,6 +73,7 @@ let notes = [
 
     const generateId = () => {
       const maxId = notes.length > 0
+      
       /*Math.max returns the maximum value of the numbers that
        are passed to it. However, notes.map(n => n.id) is an 
        array so it can't directly be given as a parameter to 
@@ -113,5 +119,5 @@ let notes = [
 
     const PORT = process.env.PORT || 3001
     app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`)
+      console.log(`Server running on port ${PORT}`) 
     })
