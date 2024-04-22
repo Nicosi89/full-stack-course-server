@@ -1,5 +1,4 @@
 const Note = require('./models/note')
-const http = require('http')
 const express = require('express')
 const cors = require('cors')
 const app = express()
@@ -30,8 +29,20 @@ that are stored in the request object, parses it into a JavaScript object and
 assigns it to the request object as a new property body.*/ 
 app.use(express.json())
 app.use(requestLogger)
-// handler of requests with unknown endpoint
-app.use(unknownEndpoint)
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  }
+
+  else if (error.name === 'ValidationError') {
+        return response.status(400).json({ error: error.message 
+        })
+      }
+  next(error)
+}
 
 
 
@@ -47,7 +58,7 @@ app.use(unknownEndpoint)
       if (note) {
         response.json(note)
       } else {
-        response.status(404).end() 
+        response.status(404).send('No se encontro la nota') 
         
       }
     })
@@ -65,6 +76,13 @@ app.use(unknownEndpoint)
     .catch(error => next(error))
 })
 
+    //traer todas las notas
+    app.get('/api/notes', (request, response) => {
+      Note.find({}).then(notes => {
+        response.json(notes)
+      })
+    })
+
 
     
     
@@ -81,27 +99,41 @@ app.use(unknownEndpoint)
         important: body.important || false,
       })
     
-      note.save().then(savedNote => {
+      note.save()
+      .then(savedNote => {
         response.json(savedNote)
       })
+      //si hay un error en la creación de la nota se pasa al middleware manejador de errores usando next()
+      /*When an error is passed to next, Express will skip all remaining middleware in the stack and go 
+      straight to the error handling middleware.*/
+      .catch(error => next(error))
     })
    
     //actualizar una nota
     app.put('/api/notes/:id', (request, response, next) => {
-      const body = request.body
+      //esta ruta tiene un manejo de errores personalizado ya que 
+      //findByIdAndUpdate no devuelve un objeto validado
+      const { content, important } = request.body
     
       const note = {
         content: body.content,
         important: body.important,
       }
     
-      Note.findByIdAndUpdate(request.params.id, note, { new: true })
-        .then(updatedNote => {
-          response.json(updatedNote)
-        })
-        .catch(error => next(error))
+      Note.findByIdAndUpdate(
+        request.params.id, 
+        { content, important },    
+        { new: true, runValidators: true, context: 'query' })
+          .then(updatedNote => {
+            response.json(updatedNote)
+          })
+          .catch(error => next(error))
     })
 
+    /*estos dos middlewares manejadores de errores deben ser los últimos cargados en el archivo por que
+     se ejecutan en orden de carga ya que antes de ellos se debn ejecutar las rutas y si pasa algo lo pasan a los middlewares*/
+    app.use(unknownEndpoint)
+    app.use(errorHandler)
  
 
     const PORT = process.env.PORT || 3001
